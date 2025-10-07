@@ -1,0 +1,2378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SiteWarming - Bulk Warming Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #0a0a0a;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 8px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 320px;
+            max-width: 420px;
+            animation: slideIn 0.3s ease-out;
+            border-left: 4px solid #22c55e;
+        }
+
+        .toast.success {
+            border-left-color: #22c55e;
+        }
+
+        .toast.error {
+            border-left-color: #ef4444;
+        }
+
+        .toast.warning {
+            border-left-color: #f59e0b;
+        }
+
+        .toast.info {
+            border-left-color: #3b82f6;
+        }
+
+        .toast-icon {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .toast-icon.success { color: #22c55e; }
+        .toast-icon.error { color: #ef4444; }
+        .toast-icon.warning { color: #f59e0b; }
+        .toast-icon.info { color: #3b82f6; }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+
+        .toast-message {
+            font-size: 13px;
+            color: #737373;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #737373;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        .toast-close:hover {
+            color: #0a0a0a;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-spinner {
+            background: white;
+            padding: 32px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #e5e5e5;
+            border-top-color: #FF6B4A;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: #525252;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 240px;
+            background: #ffffff;
+            border-right: 1px solid #e5e5e5;
+            padding: 24px 0;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 24px 24px;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 16px;
+        }
+
+        .sidebar-logo svg {
+            width: 24px;
+            height: 24px;
+            color: #FF6B4A;
+        }
+
+        .sidebar-logo h2 {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .org-selector {
+            padding: 0 16px 16px;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 16px;
+        }
+
+        .org-button {
+            width: 100%;
+            padding: 8px 12px;
+            background: #f5f5f5;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .org-button:hover {
+            background: #ececec;
+        }
+
+        .sidebar-nav {
+            padding: 0 16px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            color: #525252;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover {
+            background: #f5f5f5;
+        }
+
+        .nav-item.active {
+            background: #fff5f2;
+            color: #FF6B4A;
+            font-weight: 500;
+        }
+
+        .nav-item svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            overflow: auto;
+        }
+
+        .header {
+            background: #ffffff;
+            padding: 24px 32px;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            color: #737373;
+            font-size: 16px;
+        }
+
+        .welcome-text {
+            font-size: 14px;
+            color: #737373;
+            margin-top: 8px;
+        }
+
+        /* Dashboard View */
+        .dashboard-content {
+            padding: 32px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            transition: all 0.2s;
+        }
+
+        .stat-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+        }
+
+        .stat-info h3 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-info p {
+            font-size: 14px;
+            color: #737373;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f5f5f5;
+        }
+
+        .stat-icon svg {
+            width: 24px;
+            height: 24px;
+            color: #525252;
+        }
+
+        /* Action Cards */
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+        }
+
+        .action-card {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            padding: 28px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .action-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+        }
+
+        .action-card.selected {
+            border: 2px solid #FF6B4A;
+            background: #fff5f2;
+        }
+
+        .action-card h3 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .action-card h3 svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .action-card p {
+            font-size: 14px;
+            color: #737373;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #FF6B4A;
+            color: white;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-primary:not(:disabled):hover {
+            background: #ff5533;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 107, 74, 0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid #e5e5e5;
+            color: #0a0a0a;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-secondary:hover {
+            background: #f5f5f5;
+        }
+
+        /* Warming Dashboard */
+        .warming-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .warming-header-left h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .warming-header-left p {
+            font-size: 14px;
+            color: #737373;
+        }
+
+        .warming-header-right {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Alert Banner */
+        .alert {
+            background: #fff5f2;
+            border: 1px solid #ffb4a0;
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            align-items: start;
+            gap: 12px;
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .alert svg {
+            width: 20px;
+            height: 20px;
+            color: #FF6B4A;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .alert-content h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .alert-content p {
+            font-size: 13px;
+            color: #525252;
+        }
+
+        /* Analytics Cards */
+        .analytics-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .analytics-card {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.2s;
+        }
+
+        .analytics-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+        }
+
+        .analytics-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .analytics-card-header h4 {
+            font-size: 13px;
+            color: #737373;
+            font-weight: 500;
+        }
+
+        .analytics-card-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #0a0a0a;
+        }
+
+        .analytics-card-change {
+            font-size: 12px;
+            color: #22c55e;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .analytics-card-change.negative {
+            color: #ef4444;
+        }
+
+        /* Domain List */
+        .domain-list-container {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .domain-list-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .domain-list-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .domain-list-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .search-box {
+            padding: 8px 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 240px;
+            transition: all 0.2s;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #FF6B4A;
+            box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.1);
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            border: 1px solid #e5e5e5;
+            background: white;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            background: #f5f5f5;
+        }
+
+        .domain-table {
+            width: 100%;
+        }
+
+        .domain-table thead {
+            background: #f5f5f5;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .domain-table th {
+            padding: 12px 24px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            color: #525252;
+        }
+
+        .domain-table th input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #FF6B4A;
+        }
+
+        .domain-table td {
+            padding: 16px 24px;
+            border-bottom: 1px solid #e5e5e5;
+            font-size: 14px;
+        }
+
+        .domain-table tbody tr {
+            transition: background 0.2s;
+        }
+
+        .domain-table tbody tr:hover {
+            background: #fafafa;
+        }
+
+        .domain-name {
+            font-weight: 500;
+            color: #0a0a0a;
+        }
+
+        .domain-status {
+            display: inline-flex;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .domain-status.active {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .domain-status.pending {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .domain-status.warming {
+            background: #ffe8e2;
+            color: #FF6B4A;
+        }
+
+        .warming-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .progress-bar-small {
+            flex: 1;
+            height: 6px;
+            background: #e5e5e5;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-small-fill {
+            height: 100%;
+            background: #FF6B4A;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #737373;
+            white-space: nowrap;
+        }
+
+        .domain-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            padding: 6px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            color: #737373;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: #f5f5f5;
+            color: #FF6B4A;
+        }
+
+        .icon-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Selection Bar */
+        .selection-bar {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0a0a0a;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .selection-bar-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .selection-bar-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .selection-bar .btn {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        /* Wizard Styles */
+        .wizard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .wizard-progress {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .wizard-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .wizard-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            transition: all 0.3s ease;
+        }
+
+        .wizard-step-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e5e5e5;
+            color: #737373;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .wizard-step.completed .wizard-step-icon {
+            background: #22c55e;
+            color: white;
+            animation: pulse 0.5s ease-out;
+        }
+
+        .wizard-step.active .wizard-step-icon {
+            background: #FF6B4A;
+            color: white;
+            animation: pulse 0.5s ease-out;
+        }
+
+        .wizard-step-label {
+            font-size: 12px;
+            text-align: center;
+            color: #737373;
+            transition: all 0.3s ease;
+        }
+
+        .wizard-step.active .wizard-step-label {
+            color: #0a0a0a;
+            font-weight: 600;
+        }
+
+        .wizard-progress-bar {
+            height: 8px;
+            background: #e5e5e5;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .wizard-progress-bar-fill {
+            height: 100%;
+            background: #FF6B4A;
+            transition: width 0.5s ease;
+        }
+
+        .wizard-card {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .wizard-card h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .wizard-card > p {
+            color: #737373;
+            margin-bottom: 24px;
+        }
+
+        /* Selected Domains Preview */
+        .selected-domains-preview {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 24px;
+        }
+
+        .selected-domains-preview h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .domain-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .domain-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            font-size: 13px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .domain-chip button {
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            color: #737373;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .domain-chip button:hover {
+            color: #ef4444;
+        }
+
+        /* Radio Options */
+        .radio-option {
+            padding: 16px;
+            border: 2px solid #e5e5e5;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .radio-option:hover {
+            border-color: #FFB4A0;
+            background: #fffbfa;
+        }
+
+        .radio-option.selected {
+            border-color: #FF6B4A;
+            background: #fff5f2;
+        }
+
+        .radio-option input[type="radio"] {
+            accent-color: #FF6B4A;
+        }
+
+        /* Form Controls */
+        input[type="date"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        input[type="date"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #FF6B4A;
+            box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.1);
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: block;
+            color: #0a0a0a;
+        }
+
+        /* Hidden class */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .actions-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .warming-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .warming-header-right {
+                width: 100%;
+            }
+
+            .warming-header-right .btn {
+                width: 100%;
+            }
+        }
+
+        /* Summary Card */
+        .summary-card {
+            background: linear-gradient(135deg, #fff5f2 0%, #ffffff 100%);
+            border: 2px solid #FF6B4A;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .summary-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .summary-icon {
+            width: 48px;
+            height: 48px;
+            background: #FF6B4A;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .summary-content h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .summary-content p {
+            font-size: 14px;
+            color: #737373;
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .summary-stat {
+            padding: 16px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e5e5e5;
+        }
+
+        .summary-stat-label {
+            font-size: 12px;
+            color: #737373;
+            margin-bottom: 4px;
+        }
+
+        .summary-stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0a0a0a;
+        }
+    </style>
+</head>
+<body>
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <svg fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                </svg>
+                <h2>SiteWarming</h2>
+            </div>
+
+            <div class="org-selector">
+                <button class="org-button">
+                    pathbp76's Organization
+                    <svg style="float: right;" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a class="nav-item" id="nav-dashboard" onclick="showView('dashboard')">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    Dashboard
+                </a>
+                <a class="nav-item" id="nav-warming" onclick="showView('warming-overview')">
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                    Bulk Warming
+                    <span style="margin-left: auto; background: #FF6B4A; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px;">NEW</span>
+                </a>
+                <a class="nav-item" onclick="showToast('info', 'Coming Soon', 'My Domains feature will be available soon')">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                    </svg>
+                    My Domains
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <div id="dashboard-view" class="view">
+                <div class="header">
+                    <h1>Launch for Visibility. Warm for Value.</h1>
+                    <p>The platform for idea-driven entrepreneurs who buy domains with vision.</p>
+                    <p class="welcome-text">Welcome back, parthp76!</p>
+                </div>
+
+                <div class="dashboard-content">
+                    <!-- Stats -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <h3 id="ready-to-launch-count">0</h3>
+                                <p>Ready to Launch</p>
+                            </div>
+                            <div class="stat-icon">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <h3 id="launched-count">0</h3>
+                                <p>Launched</p>
+                            </div>
+                            <div class="stat-icon">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <h3 id="warming-count">0</h3>
+                                <p>Currently Warming</p>
+                            </div>
+                            <div class="stat-icon">
+                                <svg fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-info">
+                                <h3 id="portfolio-value">$0</h3>
+                                <p>Portfolio Value</p>
+                            </div>
+                            <div class="stat-icon">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="actions-grid">
+                        <div class="action-card">
+                            <h3>
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                                Launch Your Vision
+                            </h3>
+                            <p>Turn your domain into a beautiful site in minutes. Choose from Coming Soon, Portfolio, or For Sale templates.</p>
+                            <button class="btn btn-primary" onclick="showToast('info', 'Coming Soon', 'Launch flow will be integrated from the existing app')">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                Launch New Site
+                            </button>
+                        </div>
+
+                        <div class="action-card">
+                            <h3>
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                </svg>
+                                Import Domains
+                            </h3>
+                            <p>Import your existing domains and start managing them all in one place.</p>
+                            <button class="btn btn-secondary" onclick="showToast('info', 'Coming Soon', 'Import flow will be integrated from the existing app')">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                </svg>
+                                Import Domains
+                            </button>
+                        </div>
+
+                        <div class="action-card" style="border: 2px solid #FF6B4A;">
+                            <h3>
+                                <svg fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                                </svg>
+                                Start Bulk Warming
+                                <span style="margin-left: auto; background: #FF6B4A; color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px;">NEW</span>
+                            </h3>
+                            <p>Warm up multiple domains at once with automated content generation. Build authority and improve SEO across your entire portfolio.</p>
+                            <button class="btn btn-primary" onclick="showView('warming-overview')">
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                                </svg>
+                                Start Warming
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warming Overview -->
+            <div id="warming-overview-view" class="view hidden">
+                <div class="header">
+                    <div class="warming-header">
+                        <div class="warming-header-left">
+                            <h1>Bulk Domain Warming</h1>
+                            <p>Manage and monitor your domain warming campaigns</p>
+                        </div>
+                        <div class="warming-header-right">
+                            <button class="btn btn-secondary" onclick="showView('dashboard')">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                                </svg>
+                                Back to Dashboard
+                            </button>
+                            <button class="btn btn-primary" onclick="startWarmingWizard()">
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                                </svg>
+                                Start New Warming
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-content">
+                    <!-- Alert -->
+                    <div class="alert">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="alert-content">
+                            <h4>Ready to warm your domains?</h4>
+                            <p id="warming-alert-text">You have 12 domains ready for warming. Start a campaign to build authority and improve SEO rankings across your portfolio.</p>
+                        </div>
+                    </div>
+
+                    <!-- Analytics -->
+                    <div class="analytics-row">
+                        <div class="analytics-card">
+                            <div class="analytics-card-header">
+                                <h4>Active Campaigns</h4>
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                                </svg>
+                            </div>
+                            <div class="analytics-card-value" id="active-campaigns">3</div>
+                            <div class="analytics-card-change">
+                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                </svg>
+                                +2 this month
+                            </div>
+                        </div>
+
+                        <div class="analytics-card">
+                            <div class="analytics-card-header">
+                                <h4>Total Posts Published</h4>
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="analytics-card-value" id="total-posts">127</div>
+                            <div class="analytics-card-change">
+                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                </svg>
+                                <span id="posts-this-week">+18</span> this week
+                            </div>
+                        </div>
+
+                        <div class="analytics-card">
+                            <div class="analytics-card-header">
+                                <h4>Avg. Domain Authority</h4>
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                                </svg>
+                            </div>
+                            <div class="analytics-card-value" id="avg-authority">42</div>
+                            <div class="analytics-card-change">
+                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                </svg>
+                                +7 from last month
+                            </div>
+                        </div>
+
+                        <div class="analytics-card">
+                            <div class="analytics-card-header">
+                                <h4>Scheduled Posts</h4>
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="analytics-card-value" id="scheduled-posts">45</div>
+                            <div class="analytics-card-change">
+                                Next: Tomorrow 9:00 AM
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Domain List -->
+                    <div class="domain-list-container">
+                        <div class="domain-list-header">
+                            <h3>Your Domains (<span id="domain-count">12</span>)</h3>
+                            <div class="domain-list-actions">
+                                <input type="text" class="search-box" placeholder="Search domains..." id="domain-search" oninput="filterDomains()">
+                                <button class="filter-btn" onclick="showToast('info', 'Filter Options', 'Filter by: Status, Warming Status, Posts Count')">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                                    </svg>
+                                    Filter
+                                </button>
+                            </div>
+                        </div>
+
+                        <table class="domain-table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="select-all" onchange="toggleSelectAll()"></th>
+                                    <th>Domain</th>
+                                    <th>Status</th>
+                                    <th>Warming Status</th>
+                                    <th>Posts Published</th>
+                                    <th>Next Post</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="domain-table-body">
+                                <!-- Domains will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warming Wizard -->
+            <div id="warming-wizard-view" class="view hidden">
+                <div class="header">
+                    <h1>Configure Warming Campaign</h1>
+                    <p>Set up your bulk warming configuration</p>
+                </div>
+
+                <div class="dashboard-content">
+                    <div class="wizard-container">
+                        <!-- Progress -->
+                        <div class="wizard-progress">
+                            <div class="wizard-steps" id="wizard-steps">
+                                <!-- Steps rendered by JS -->
+                            </div>
+                            <div class="wizard-progress-bar">
+                                <div class="wizard-progress-bar-fill" id="wizard-progress-fill"></div>
+                            </div>
+                        </div>
+
+                        <!-- Wizard Content -->
+                        <div id="wizard-content">
+                            <!-- Content rendered by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Selection Bar (hidden by default) -->
+    <div id="selection-bar" class="selection-bar hidden">
+        <span class="selection-bar-text"><span id="selected-count">0</span> domain<span id="selected-plural">s</span> selected</span>
+        <div class="selection-bar-actions">
+            <button class="btn btn-secondary" onclick="clearSelection()">Clear</button>
+            <button class="btn btn-primary" onclick="startWarmingWithSelected()">
+                Start Warming Selected
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Sample domain data
+        const domains = [
+            { id: 1, name: 'pathgenius.ai', status: 'active', warming: 'active', progress: 65, posts: 23, nextPost: 'Tomorrow 9:00 AM' },
+            { id: 2, name: 'techflow.com', status: 'active', warming: 'active', progress: 45, posts: 15, nextPost: 'Tomorrow 12:00 PM' },
+            { id: 3, name: 'datawise.io', status: 'pending', warming: 'paused', progress: 20, posts: 7, nextPost: 'Paused' },
+            { id: 4, name: 'cloudnexus.dev', status: 'active', warming: 'none', progress: 0, posts: 0, nextPost: '-' },
+            { id: 5, name: 'innovateai.tech', status: 'active', warming: 'none', progress: 0, posts: 0, nextPost: '-' },
+            { id: 6, name: 'smartscale.io', status: 'active', warming: 'none', progress: 0, posts: 0, nextPost: '-' },
+            { id: 7, name: 'quantumleap.com', status: 'pending', warming: 'none', progress: 0, posts: 0, nextPost: '-' },
+            { id: 8, name: 'futurebuild.net', status: 'active', warming: 'active', progress: 80, posts: 34, nextPost: 'Today 3:00 PM' },
+            { id: 9, name: 'visionsync.app', status: 'active', warming: 'none', progress: 0, posts: 0, nextPost: '-' },
+            { id: 10, name: 'nextstep.ventures', status: 'active', warming: 'none', progress: 0, posts: 0, nextPost: '-' },
+            { id: 11, name: 'growthmetrics.co', status: 'pending', warming: 'none', progress: 0, posts: 0, nextPost: '-' },
+            { id: 12, name: 'builderspace.dev', status: 'active', warming: 'none', progress: 0, posts: 0, nextPost: '-' }
+        ];
+
+        let selectedDomains = [];
+        let currentView = 'dashboard';
+        let wizardStep = 1;
+        let warmingConfig = {
+            setupType: null,
+            selectedPov: '',
+            customPov: '',
+            answers: {},
+            scheduleDate: null,
+            frequency: 'weekly',
+            postsPerPeriod: 3,
+            timeOfDay: '9am'
+        };
+
+        // Toast notification system
+        function showToast(type, title, message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
+                error: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
+                warning: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>',
+                info: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
+            };
+            
+            toast.innerHTML = `
+                <svg class="toast-icon ${type}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    ${icons[type]}
+                </svg>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // Loading overlay
+        function showLoading(message = 'Processing...') {
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.id = 'loading-overlay';
+            overlay.innerHTML = `
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                    <div class="loading-text">${message}</div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
+        }
+
+        // Initialize
+        function init() {
+            renderDomainTable();
+            showView('dashboard');
+            updateDashboardStats();
+            showToast('success', 'Welcome Back!', 'Your dashboard has been loaded successfully');
+        }
+
+        // Update dashboard statistics
+        function updateDashboardStats() {
+            const warmingDomains = domains.filter(d => d.warming === 'active').length;
+            const totalPosts = domains.reduce((sum, d) => sum + d.posts, 0);
+            
+            document.getElementById('warming-count').textContent = warmingDomains;
+            document.getElementById('domain-count').textContent = domains.length;
+            document.getElementById('active-campaigns').textContent = warmingDomains;
+            document.getElementById('total-posts').textContent = totalPosts;
+            
+            // Update warming alert
+            const availableDomains = domains.filter(d => d.warming === 'none').length;
+            document.getElementById('warming-alert-text').textContent = 
+                `You have ${availableDomains} domain${availableDomains !== 1 ? 's' : ''} ready for warming. Start a campaign to build authority and improve SEO rankings across your portfolio.`;
+        }
+
+        // View Management
+        function showView(view) {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
+            currentView = view;
+            
+            if (view === 'dashboard') {
+                document.getElementById('dashboard-view').classList.remove('hidden');
+                document.getElementById('nav-dashboard').classList.add('active');
+                updateDashboardStats();
+            } else if (view === 'warming-overview') {
+                document.getElementById('warming-overview-view').classList.remove('hidden');
+                document.getElementById('nav-warming').classList.add('active');
+                renderDomainTable();
+                updateDashboardStats();
+            } else if (view === 'warming-wizard') {
+                document.getElementById('warming-wizard-view').classList.remove('hidden');
+            }
+            
+            window.scrollTo(0, 0);
+        }
+
+        // Domain Table
+        function renderDomainTable() {
+            const tbody = document.getElementById('domain-table-body');
+            tbody.innerHTML = domains.map(domain => `
+                <tr data-domain-id="${domain.id}">
+                    <td><input type="checkbox" class="domain-checkbox" value="${domain.id}" onchange="toggleDomain(${domain.id})" ${selectedDomains.includes(domain.id) ? 'checked' : ''}></td>
+                    <td>
+                        <div class="domain-name">${domain.name}</div>
+                    </td>
+                    <td>
+                        <span class="domain-status ${domain.status}">${domain.status}</span>
+                    </td>
+                    <td>
+                        ${domain.warming === 'active' ? `
+                            <div class="warming-progress">
+                                <div class="progress-bar-small">
+                                    <div class="progress-bar-small-fill" style="width: ${domain.progress}%"></div>
+                                </div>
+                                <span class="progress-text">${domain.progress}%</span>
+                            </div>
+                        ` : `<span class="domain-status ${domain.warming === 'paused' ? 'pending' : 'active'}">${domain.warming === 'none' ? 'Not Started' : 'Paused'}</span>`}
+                    </td>
+                    <td><strong>${domain.posts}</strong></td>
+                    <td>${domain.nextPost}</td>
+                    <td>
+                        <div class="domain-actions">
+                            <button class="icon-btn" onclick="viewDomainDetails('${domain.name}')" title="View">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </button>
+                            <button class="icon-btn" onclick="editDomainWarming('${domain.name}')" title="Edit">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                            </button>
+                            ${domain.warming === 'active' ? `
+                                <button class="icon-btn" onclick="pauseDomainWarming(${domain.id}, '${domain.name}')" title="Pause">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Domain actions
+        function viewDomainDetails(domainName) {
+            showToast('info', 'Domain Details', `Viewing details for ${domainName}`);
+        }
+
+        function editDomainWarming(domainName) {
+            showToast('info', 'Edit Warming', `Edit warming configuration for ${domainName}`);
+        }
+
+        function pauseDomainWarming(domainId, domainName) {
+            showLoading('Pausing warming campaign...');
+            setTimeout(() => {
+                hideLoading();
+                const domain = domains.find(d => d.id === domainId);
+                if (domain) {
+                    domain.warming = 'paused';
+                    domain.nextPost = 'Paused';
+                    renderDomainTable();
+                    updateDashboardStats();
+                    showToast('success', 'Campaign Paused', `Warming campaign for ${domainName} has been paused`);
+                }
+            }, 1000);
+        }
+
+        // Domain Selection
+        function toggleDomain(domainId) {
+            const checkbox = document.querySelector(`input[value="${domainId}"]`);
+            if (checkbox.checked) {
+                if (!selectedDomains.includes(domainId)) {
+                    selectedDomains.push(domainId);
+                }
+            } else {
+                selectedDomains = selectedDomains.filter(id => id !== domainId);
+            }
+            updateSelectionBar();
+        }
+
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('select-all');
+            const checkboxes = document.querySelectorAll('.domain-checkbox');
+            
+            checkboxes.forEach(cb => {
+                cb.checked = selectAll.checked;
+                const domainId = parseInt(cb.value);
+                if (selectAll.checked) {
+                    if (!selectedDomains.includes(domainId)) {
+                        selectedDomains.push(domainId);
+                    }
+                } else {
+                    selectedDomains = [];
+                }
+            });
+            updateSelectionBar();
+            
+            if (selectAll.checked) {
+                showToast('info', 'All Selected', `All ${domains.length} domains have been selected`);
+            }
+        }
+
+        function updateSelectionBar() {
+            const selectionBar = document.getElementById('selection-bar');
+            const selectedCount = document.getElementById('selected-count');
+            const selectedPlural = document.getElementById('selected-plural');
+            
+            if (selectedDomains.length > 0) {
+                selectionBar.classList.remove('hidden');
+                selectedCount.textContent = selectedDomains.length;
+                selectedPlural.textContent = selectedDomains.length === 1 ? '' : 's';
+            } else {
+                selectionBar.classList.add('hidden');
+            }
+        }
+
+        function clearSelection() {
+            selectedDomains = [];
+            document.querySelectorAll('.domain-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('select-all').checked = false;
+            updateSelectionBar();
+            showToast('info', 'Selection Cleared', 'All domain selections have been cleared');
+        }
+
+        // Search & Filter
+        function filterDomains() {
+            const searchTerm = document.getElementById('domain-search').value.toLowerCase();
+            const rows = document.querySelectorAll('#domain-table-body tr');
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+                const domainName = row.querySelector('.domain-name').textContent.toLowerCase();
+                if (domainName.includes(searchTerm)) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            if (searchTerm && visibleCount === 0) {
+                showToast('warning', 'No Results', 'No domains match your search criteria');
+            }
+        }
+
+        // Warming Wizard
+        function startWarmingWizard() {
+            if (selectedDomains.length === 0) {
+                showToast('warning', 'No Domains Selected', 'Please select at least one domain to start warming');
+                return;
+            }
+            
+            showLoading('Preparing warming wizard...');
+            setTimeout(() => {
+                hideLoading();
+                wizardStep = 1;
+                showView('warming-wizard');
+                renderWizardStep();
+                showToast('info', 'Wizard Started', `Configuring warming for ${selectedDomains.length} domain${selectedDomains.length > 1 ? 's' : ''}`);
+            }, 800);
+        }
+
+        function startWarmingWithSelected() {
+            startWarmingWizard();
+        }
+
+        function renderWizardStep() {
+            const steps = [
+                { num: 1, label: 'Setup Type', completed: wizardStep > 1 },
+                { num: 2, label: 'Configuration', completed: wizardStep > 2 },
+                { num: 3, label: 'Review Domains', completed: wizardStep > 3 },
+                { num: 4, label: 'Schedule', completed: wizardStep > 4 },
+                { num: 5, label: 'Complete', completed: wizardStep > 5 }
+            ];
+
+            // Render steps
+            document.getElementById('wizard-steps').innerHTML = steps.map(step => `
+                <div class="wizard-step ${step.completed ? 'completed' : ''} ${step.num === wizardStep ? 'active' : ''}">
+                    <div class="wizard-step-icon">
+                        ${step.completed ? '✓' : step.num}
+                    </div>
+                    <div class="wizard-step-label">${step.label}</div>
+                </div>
+            `).join('');
+
+            // Update progress bar
+            const progress = ((wizardStep - 1) / (steps.length - 1)) * 100;
+            document.getElementById('wizard-progress-fill').style.width = progress + '%';
+
+            // Render content based on step
+            const content = document.getElementById('wizard-content');
+            
+            if (wizardStep === 1) {
+                renderSetupTypeStep(content);
+            } else if (wizardStep === 2) {
+                renderConfigurationStep(content);
+            } else if (wizardStep === 3) {
+                renderReviewDomainsStep(content);
+            } else if (wizardStep === 4) {
+                renderScheduleStep(content);
+            } else if (wizardStep === 5) {
+                renderCompleteStep(content);
+            }
+        }
+
+        function renderSetupTypeStep(content) {
+            const selectedDomainsList = domains.filter(d => selectedDomains.includes(d.id));
+            
+            content.innerHTML = `
+                <div class="wizard-card fade-in">
+                    <h2>Choose Your Setup Path</h2>
+                    <p>Select how you'd like to configure warming for ${selectedDomains.length} domain${selectedDomains.length > 1 ? 's' : ''}</p>
+                    
+                    <div class="selected-domains-preview">
+                        <h4>Selected Domains (${selectedDomains.length})</h4>
+                        <div class="domain-chips">
+                            ${selectedDomainsList.map(d => `
+                                <div class="domain-chip">
+                                    ${d.name}
+                                    <button onclick="removeFromSelection(${d.id})">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="actions-grid" style="margin-top: 32px;">
+                        <div class="action-card ${warmingConfig.setupType === 'quick' ? 'selected' : ''}" onclick="selectSetupType('quick')">
+                            <h3>
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                                Quick Start
+                            </h3>
+                            <p style="margin-bottom: 8px;"><strong>1 question • ~1 minute</strong></p>
+                            <p>Smart defaults work for most cases. Perfect for getting started quickly.</p>
+                        </div>
+
+                        <div class="action-card ${warmingConfig.setupType === 'full' ? 'selected' : ''}" onclick="selectSetupType('full')">
+                            <h3>
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                                </svg>
+                                Full Configuration
+                            </h3>
+                            <p style="margin-bottom: 8px;"><strong>4 questions • ~10 minutes</strong></p>
+                            <p>Complete control over strategy. Best for specific requirements.</p>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-top: 32px;">
+                        <button class="btn btn-secondary" onclick="cancelWizard()">Cancel</button>
+                        <button class="btn btn-primary" ${!warmingConfig.setupType ? 'disabled' : ''} onclick="nextStep()" style="margin-left: auto;">
+                            Continue
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderConfigurationStep(content) {
+            if (warmingConfig.setupType === 'quick') {
+                content.innerHTML = `
+                    <div class="wizard-card fade-in">
+                        <h2>Quick Configuration</h2>
+                        <p>Choose a content perspective that matches your domains</p>
+                        
+                        <div style="margin: 24px 0;">
+                            <label style="font-size: 16px; font-weight: 600; margin-bottom: 16px; display: block;">
+                                What perspective should your content take?
+                            </label>
+                            
+                            ${['pragmatist', 'innovator', 'skeptic', 'humanist', 'optimizer', 'custom'].map(pov => `
+                                <div class="radio-option ${warmingConfig.selectedPov === pov ? 'selected' : ''}" onclick="selectPov('${pov}')">
+                                    <input type="radio" name="pov" value="${pov}" ${warmingConfig.selectedPov === pov ? 'checked' : ''}>
+                                    <strong style="margin-left: 8px;">${pov.charAt(0).toUpperCase() + pov.slice(1)}</strong>
+                                    <p style="margin: 4px 0 0 28px; font-size: 14px; color: #737373;">
+                                        ${pov === 'pragmatist' ? 'Technology should be boring and just work' :
+                                          pov === 'innovator' ? "We're not moving fast enough" :
+                                          pov === 'skeptic' ? "Most 'innovation' is just marketing" :
+                                          pov === 'humanist' ? 'Tech should serve people, not replace them' :
+                                          pov === 'optimizer' ? 'Everything can be 10x more efficient' :
+                                          'Your unique perspective'}
+                                    </p>
+                                </div>
+                            `).join('')}
+                            
+                            ${warmingConfig.selectedPov === 'custom' ? `
+                                <textarea id="custom-pov" placeholder="Describe your unique perspective..." style="margin-top: 16px; min-height: 100px;" oninput="updateCustomPov(this.value)">${warmingConfig.customPov}</textarea>
+                                <p style="font-size: 13px; color: ${warmingConfig.customPov.length >= 20 ? '#22c55e' : '#737373'}; margin-top: 4px;">
+                                    ${warmingConfig.customPov.length} characters (min 20 required)
+                                </p>
+                            ` : ''}
+                        </div>
+
+                        <div style="display: flex; gap: 12px; margin-top: 32px;">
+                            <button class="btn btn-secondary" onclick="prevStep()">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                </svg>
+                                Back
+                            </button>
+                            <button class="btn btn-primary" ${!canProceedConfig() ? 'disabled' : ''} onclick="nextStep()" style="margin-left: auto;">
+                                Continue
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <div class="wizard-card fade-in">
+                        <h2>Full Configuration</h2>
+                        <p>Complete warming setup with all customization options</p>
+                        <div class="alert" style="margin-top: 16px;">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <div class="alert-content">
+                                <h4>Full Configuration Available</h4>
+                                <p>For this demo, we're using simplified configuration. The production version will include all 4 interview questions and content style customization.</p>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; margin-top: 32px;">
+                            <button class="btn btn-secondary" onclick="prevStep()">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                </svg>
+                                Back
+                            </button>
+                            <button class="btn btn-primary" onclick="nextStep()" style="margin-left: auto;">
+                                Continue
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderReviewDomainsStep(content) {
+            const selectedDomainsList = domains.filter(d => selectedDomains.includes(d.id));
+            const currentPosts = selectedDomainsList.reduce((sum, d) => sum + d.posts, 0);
+            
+            content.innerHTML = `
+                <div class="wizard-card fade-in">
+                    <h2>Review Selected Domains</h2>
+                    <p>These ${selectedDomains.length} domains will receive the warming configuration</p>
+                    
+                    <div class="summary-card" style="margin-top: 24px;">
+                        <div class="summary-stats">
+                            <div class="summary-stat">
+                                <div class="summary-stat-label">Total Domains</div>
+                                <div class="summary-stat-value">${selectedDomains.length}</div>
+                            </div>
+                            <div class="summary-stat">
+                                <div class="summary-stat-label">Current Posts</div>
+                                <div class="summary-stat-value">${currentPosts}</div>
+                            </div>
+                            <div class="summary-stat">
+                                <div class="summary-stat-label">Active Campaigns</div>
+                                <div class="summary-stat-value">${selectedDomainsList.filter(d => d.warming === 'active').length}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="domain-list-container" style="margin-top: 24px;">
+                        <table class="domain-table">
+                            <thead>
+                                <tr>
+                                    <th>Domain</th>
+                                    <th>Status</th>
+                                    <th>Current Posts</th>
+                                    <th>Current Progress</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${selectedDomainsList.map(d => `
+                                    <tr>
+                                        <td><strong>${d.name}</strong></td>
+                                        <td><span class="domain-status ${d.status}">${d.status}</span></td>
+                                        <td><strong>${d.posts}</strong> posts</td>
+                                        <td>
+                                            ${d.warming === 'active' ? `
+                                                <div class="warming-progress">
+                                                    <div class="progress-bar-small">
+                                                        <div class="progress-bar-small-fill" style="width: ${d.progress}%"></div>
+                                                    </div>
+                                                    <span class="progress-text">${d.progress}%</span>
+                                                </div>
+                                            ` : '<span class="domain-status active">Ready</span>'}
+                                        </td>
+                                        <td>
+                                            <button class="icon-btn" onclick="removeFromSelection(${d.id}); renderWizardStep();" title="Remove">
+                                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert" style="margin-top: 24px;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="alert-content">
+                            <h4>Configuration Will Be Applied to All</h4>
+                            <p>The ${warmingConfig.setupType === 'quick' ? 'Quick Start' : 'Full'} configuration (${warmingConfig.selectedPov || 'Custom'} perspective) will be applied to all ${selectedDomains.length} domains.</p>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-top: 32px;">
+                        <button class="btn btn-secondary" onclick="prevStep()">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                            </svg>
+                            Back
+                        </button>
+                        <button class="btn btn-primary" onclick="nextStep()" style="margin-left: auto;">
+                            Continue to Schedule
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderScheduleStep(content) {
+            const today = new Date().toISOString().split('T')[0];
+            const totalPostsPerPeriod = warmingConfig.postsPerPeriod * selectedDomains.length;
+            
+            content.innerHTML = `
+                <div class="wizard-card fade-in">
+                    <h2>Schedule Content Publishing</h2>
+                    <p>Set up when and how often to publish content for all ${selectedDomains.length} domains</p>
+                    
+                    <div class="actions-grid" style="margin-top: 24px;">
+                        <div>
+                            <label>Start Date</label>
+                            <input type="date" id="schedule-date" value="${warmingConfig.scheduleDate || ''}" min="${today}" onchange="updateScheduleDate(this.value)">
+                        </div>
+                        <div>
+                            <label>Frequency</label>
+                            <select id="frequency" onchange="updateFrequency(this.value)">
+                                <option value="daily" ${warmingConfig.frequency === 'daily' ? 'selected' : ''}>Daily</option>
+                                <option value="weekly" ${warmingConfig.frequency === 'weekly' ? 'selected' : ''}>Weekly</option>
+                                <option value="biweekly" ${warmingConfig.frequency === 'biweekly' ? 'selected' : ''}>Bi-weekly</option>
+                                <option value="monthly" ${warmingConfig.frequency === 'monthly' ? 'selected' : ''}>Monthly</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Posts per Domain</label>
+                            <select id="posts-per-period" onchange="updatePostsPerPeriod(this.value)">
+                                <option value="1" ${warmingConfig.postsPerPeriod === 1 ? 'selected' : ''}>1 post</option>
+                                <option value="2" ${warmingConfig.postsPerPeriod === 2 ? 'selected' : ''}>2 posts</option>
+                                <option value="3" ${warmingConfig.postsPerPeriod === 3 ? 'selected' : ''}>3 posts</option>
+                                <option value="5" ${warmingConfig.postsPerPeriod === 5 ? 'selected' : ''}>5 posts</option>
+                                <option value="10" ${warmingConfig.postsPerPeriod === 10 ? 'selected' : ''}>10 posts</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Time of Day</label>
+                            <select id="time-of-day" onchange="updateTimeOfDay(this.value)">
+                                <option value="9am" ${warmingConfig.timeOfDay === '9am' ? 'selected' : ''}>9:00 AM</option>
+                                <option value="12pm" ${warmingConfig.timeOfDay === '12pm' ? 'selected' : ''}>12:00 PM</option>
+                                <option value="3pm" ${warmingConfig.timeOfDay === '3pm' ? 'selected' : ''}>3:00 PM</option>
+                                <option value="6pm" ${warmingConfig.timeOfDay === '6pm' ? 'selected' : ''}>6:00 PM</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="summary-card" style="margin-top: 24px;">
+                        <div class="summary-header">
+                            <div class="summary-icon">
+                                <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="summary-content">
+                                <h3>Publishing Schedule</h3>
+                                <p id="schedule-summary">Select a start date to see your schedule</p>
+                            </div>
+                        </div>
+                        <div class="summary-stats" id="schedule-stats" style="display: ${warmingConfig.scheduleDate ? 'grid' : 'none'};">
+                            <div class="summary-stat">
+                                <div class="summary-stat-label">Start Date</div>
+                                <div class="summary-stat-value" style="font-size: 16px;" id="start-date-display">-</div>
+                            </div>
+                            <div class="summary-stat">
+                                <div class="summary-stat-label">Per Domain</div>
+                                <div class="summary-stat-value">${warmingConfig.postsPerPeriod}</div>
+                            </div>
+                            <div class="summary-stat">
+                                <div class="summary-stat-label">Total Posts/${warmingConfig.frequency}</div>
+                                <div class="summary-stat-value">${totalPostsPerPeriod}</div>
+                            </div>
+                            <div class="summary-stat">
+                                <div class="summary-stat-label">Publish Time</div>
+                                <div class="summary-stat-value" style="font-size: 16px;">${formatTime(warmingConfig.timeOfDay)}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${warmingConfig.scheduleDate ? `
+                        <div class="alert" style="margin-top: 24px; background: #f0fdf4; border-color: #86efac;">
+                            <svg fill="none" stroke="#22c55e" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <div class="alert-content">
+                                <h4 style="color: #166534;">Schedule Configured</h4>
+                                <p style="color: #166534;">Your warming campaign will start publishing content on ${formatDate(warmingConfig.scheduleDate)} at ${formatTime(warmingConfig.timeOfDay)}. Content will be automatically generated and published ${warmingConfig.frequency} for ${selectedDomains.length} domains.</p>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div style="display: flex; gap: 12px; margin-top: 32px;">
+                        <button class="btn btn-secondary" onclick="prevStep()">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                            </svg>
+                            Back
+                        </button>
+                        <button class="btn btn-primary" ${!warmingConfig.scheduleDate ? 'disabled' : ''} onclick="activateWarming()" style="margin-left: auto;">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                            </svg>
+                            Activate Warming
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            updateScheduleSummary();
+        }
+
+        function activateWarming() {
+            showLoading('Activating warming campaigns...');
+            
+            setTimeout(() => {
+                hideLoading();
+                nextStep();
+                
+                // Update domains to warming status
+                selectedDomains.forEach(id => {
+                    const domain = domains.find(d => d.id === id);
+                    if (domain) {
+                        domain.warming = 'active';
+                        domain.progress = 0;
+                        domain.nextPost = formatDate(warmingConfig.scheduleDate);
+                    }
+                });
+                
+                updateDashboardStats();
+                showToast('success', 'Campaigns Activated!', `Warming campaigns activated for ${selectedDomains.length} domains`);
+            }, 2000);
+        }
+
+        function renderCompleteStep(content) {
+            const selectedDomainsList = domains.filter(d => selectedDomains.includes(d.id));
+            const totalPostsPerPeriod = warmingConfig.postsPerPeriod * selectedDomains.length;
+            const currentPosts = selectedDomainsList.reduce((sum, d) => sum + d.posts, 0);
+            
+            content.innerHTML = `
+                <div class="wizard-card fade-in" style="border: 2px solid #22c55e; background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);">
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+                        <svg width="48" height="48" fill="none" stroke="#22c55e" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div>
+                            <h2 style="margin-bottom: 4px; color: #166534;">Bulk Warming Activated!</h2>
+                            <p style="color: #166534;">Successfully configured warming for ${selectedDomains.length} domains</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wizard-card fade-in">
+                    <h2>Campaign Summary</h2>
+                    
+                    <div class="analytics-row" style="margin: 24px 0;">
+                        <div class="analytics-card">
+                            <div class="analytics-card-header">
+                                <h4>Domains Activated</h4>
+                            </div>
+                            <div class="analytics-card-value">${selectedDomains.length}</div>
+                            <div class="analytics-card-change">
+                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                </svg>
+                                New campaigns
+                            </div>
+                        </div>
+                        <div class="analytics-card">
+                            <div class="analytics-card-header">
+                                <h4>Setup Type</h4>
+                            </div>
+                            <div class="analytics-card-value" style="font-size: 20px; text-transform: capitalize;">${warmingConfig.setupType}</div>
+                            <div class="analytics-card-change">
+                                ${warmingConfig.selectedPov ? warmingConfig.selectedPov.charAt(0).toUpperCase() + warmingConfig.selectedPov.slice(1) : 'Custom'} perspective
+                            </div>
+                        </div>
+                        <div class="analytics-card">
+                            <div class="analytics-card-header">
+                                <h4>Publishing Frequency</h4>
+                            </div>
+                            <div class="analytics-card-value" style="font-size: 20px; text-transform: capitalize;">${warmingConfig.frequency}</div>
+                            <div class="analytics-card-change">
+                                ${warmingConfig.postsPerPeriod} posts per domain
+                            </div>
+                        </div>
+                        <div class="analytics-card">
+                            <div class="analytics-card-header">
+                                <h4>Total Posts/${warmingConfig.frequency}</h4>
+                            </div>
+                            <div class="analytics-card-value">${totalPostsPerPeriod}</div>
+                            <div class="analytics-card-change">
+                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                </svg>
+                                Across all domains
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin: 24px 0 16px;">Activated Domains</h3>
+                    <div class="domain-chips">
+                        ${selectedDomainsList.map(d => `
+                            <div class="domain-chip" style="border-color: #22c55e; background: rgba(34, 197, 94, 0.05);">
+                                <svg width="14" height="14" fill="none" stroke="#22c55e" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                ${d.name}
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="summary-card" style="margin-top: 24px;">
+                        <div class="summary-header">
+                            <div class="summary-icon">
+                                <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div class="summary-content">
+                                <h3>What Happens Next?</h3>
+                                <p>Your campaigns are now active and ready to start publishing</p>
+                            </div>
+                        </div>
+                        <div style="margin-top: 16px; padding: 16px; background: white; border-radius: 8px;">
+                            <p style="color: #525252; line-height: 1.6;">
+                                <strong>First Post:</strong> ${formatDate(warmingConfig.scheduleDate)} at ${formatTime(warmingConfig.timeOfDay)}<br>
+                                <strong>Content Generation:</strong> Automatic AI-powered content creation based on your ${warmingConfig.selectedPov || 'custom'} perspective<br>
+                                <strong>Publishing Schedule:</strong> ${warmingConfig.postsPerPeriod} post${warmingConfig.postsPerPeriod > 1 ? 's' : ''} per domain, ${warmingConfig.frequency}<br>
+                                <strong>Monitoring:</strong> Track progress and performance from the Bulk Warming dashboard
+                            </p>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-top: 32px;">
+                        <button class="btn btn-secondary" onclick="finishWizard()" style="width: auto;">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                            </svg>
+                            View Dashboard
+                        </button>
+                        <button class="btn btn-primary" onclick="startNewCampaign()" style="margin-left: auto; width: auto;">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Start Another Campaign
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Wizard Navigation
+        function nextStep() {
+            wizardStep++;
+            renderWizardStep();
+            window.scrollTo(0, 0);
+        }
+
+        function prevStep() {
+            wizardStep--;
+            renderWizardStep();
+            window.scrollTo(0, 0);
+        }
+
+        function cancelWizard() {
+            if (confirm('Are you sure you want to cancel? Your progress will be lost.')) {
+                showToast('info', 'Wizard Cancelled', 'Warming wizard has been cancelled');
+                showView('warming-overview');
+            }
+        }
+
+        function finishWizard() {
+            clearSelection();
+            resetWarmingConfig();
+            showView('warming-overview');
+            showToast('success', 'Setup Complete', 'View your active warming campaigns in the dashboard');
+        }
+
+        function startNewCampaign() {
+            clearSelection();
+            resetWarmingConfig();
+            wizardStep = 1;
+            showView('warming-overview');
+            showToast('info', 'Ready for New Campaign', 'Select domains to start another warming campaign');
+        }
+
+        function resetWarmingConfig() {
+            warmingConfig = {
+                setupType: null,
+                selectedPov: '',
+                customPov: '',
+                answers: {},
+                scheduleDate: null,
+                frequency: 'weekly',
+                postsPerPeriod: 3,
+                timeOfDay: '9am'
+            };
+        }
+
+        // Config Functions
+        function selectSetupType(type) {
+            warmingConfig.setupType = type;
+            showToast('info', 'Setup Selected', `${type === 'quick' ? 'Quick Start' : 'Full Configuration'} selected`);
+            renderWizardStep();
+        }
+
+        function selectPov(pov) {
+            warmingConfig.selectedPov = pov;
+            renderWizardStep();
+        }
+
+        function updateCustomPov(value) {
+            warmingConfig.customPov = value;
+            renderWizardStep();
+        }
+
+        function updateScheduleDate(value) {
+            warmingConfig.scheduleDate = value;
+            updateScheduleSummary();
+            renderWizardStep();
+        }
+
+        function updateFrequency(value) {
+            warmingConfig.frequency = value;
+            updateScheduleSummary();
+            renderWizardStep();
+        }
+
+        function updatePostsPerPeriod(value) {
+            warmingConfig.postsPerPeriod = parseInt(value);
+            updateScheduleSummary();
+            renderWizardStep();
+        }
+
+        function updateTimeOfDay(value) {
+            warmingConfig.timeOfDay = value;
+            updateScheduleSummary();
+            renderWizardStep();
+        }
+
+        function updateScheduleSummary() {
+            const summaryEl = document.getElementById('schedule-summary');
+            const statsEl = document.getElementById('schedule-stats');
+            const startDateEl = document.getElementById('start-date-display');
+            
+            if (warmingConfig.scheduleDate && summaryEl) {
+                summaryEl.textContent = `Publishing ${warmingConfig.postsPerPeriod} post${warmingConfig.postsPerPeriod > 1 ? 's' : ''} per domain, ${warmingConfig.frequency}, starting ${formatDate(warmingConfig.scheduleDate)}`;
+                
+                if (statsEl) {
+                    statsEl.style.display = 'grid';
+                }
+                
+                if (startDateEl) {
+                    startDateEl.textContent = formatDate(warmingConfig.scheduleDate);
+                }
+            }
+        }
+
+        function canProceedConfig() {
+            if (warmingConfig.setupType === 'quick') {
+                return warmingConfig.selectedPov && (warmingConfig.selectedPov !== 'custom' || warmingConfig.customPov.length >= 20);
+            }
+            return true;
+        }
+
+        function removeFromSelection(domainId) {
+            selectedDomains = selectedDomains.filter(id => id !== domainId);
+            updateSelectionBar();
+            showToast('info', 'Domain Removed', 'Domain removed from selection');
+            
+            if (selectedDomains.length === 0) {
+                showToast('warning', 'No Domains Selected', 'Please select at least one domain');
+                cancelWizard();
+            } else {
+                renderWizardStep();
+            }
+        }
+
+        // Utility Functions
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                weekday: 'short',
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        }
+
+        function formatTime(timeString) {
+            const timeMap = {
+                '9am': '9:00 AM',
+                '12pm': '12:00 PM',
+                '3pm': '3:00 PM',
+                '6pm': '6:00 PM'
+            };
+            return timeMap[timeString] || timeString;
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
